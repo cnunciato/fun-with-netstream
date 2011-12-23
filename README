@@ -1,0 +1,9 @@
+You'll need ffmpeg:
+
+git clone git://source.ffmpeg.org/ffmpeg.git
+cd ffmpeg
+./configure --enable-shared --disable-mmx --arch=x86_6
+make
+sudo make install
+
+An AAC file is included in the build.

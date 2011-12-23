@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:WindowedApplication xmlns:fx="http://ns.adobe.com/mxml/2009" 
+					   xmlns:s="library://ns.adobe.com/flex/spark" 
+					   xmlns:mx="library://ns.adobe.com/flex/mx"
+					   width="540" height="240">
+	
+	<fx:Script>
+		<![CDATA[
+			
+			import mx.controls.Alert;
+			import mx.events.FlexEvent;
+			import mx.utils.ObjectUtil;
+			
+			private var connection:NetConnection;
+			private var bytes:ByteArray;
+			private var ffmpeg:NativeProcess;
+			
+			[Bindable]
+			private var stream:NetStream;
+			
+			private function loader_complete(event:Event):void
+			{
+				bytes = event.target.data;
+				connection.connect(null);
+				
+				var info:NativeProcessStartupInfo = new NativeProcessStartupInfo();
+				var args:Vector.<String> = new Vector.<String>();
+				args.push("-i");
+				args.push("pipe:0");
+				args.push("-f");
+				args.push("flv");
+				args.push("-");
+				
+				info.executable = new File(pathToFfmpeg.text);
+				info.arguments = args;
+				
+				ffmpeg = new NativeProcess();
+				ffmpeg.addEventListener(ProgressEvent.STANDARD_OUTPUT_DATA, ffmpeg_standardOutputData);
+				ffmpeg.start(info);
+				ffmpeg.standardInput.writeBytes(bytes, 0, bytes.length);
+			}
+			
+			private function loader_ioError(event:IOErrorEvent):void
+			{
+				Alert.show("File not found.");
+			}
+			
+			private function ffmpeg_standardOutputData(event:ProgressEvent):void
+			{
+				var b:ByteArray = new ByteArray();
+				ffmpeg.standardOutput.readBytes(b, 0, ffmpeg.standardOutput.bytesAvailable)
+				stream.appendBytes(b);
+			}
+			
+			private function connection_netStatus(event:NetStatusEvent):void
+			{
+				if (event.info.code == "NetConnection.Connect.Success")
+				{
+					stream = new NetStream(connection);
+					stream.addEventListener(NetStatusEvent.NET_STATUS, stream_netStatus);
+					stream.client = {};
+					stream.play(null);
+				}
+				else
+				{
+					trace(event.info.code);
+				}
+			}
+			
+			private function stream_netStatus(event:NetStatusEvent):void
+			{
+				trace(ObjectUtil.toString(event));
+			}
+			
+			private function play_click(event:MouseEvent):void
+			{
+				if (stream)
+				{
+					stream.resume();
+				}
+				else
+				{
+					connection = new NetConnection();
+					connection.addEventListener(NetStatusEvent.NET_STATUS, connection_netStatus);
+					
+					var request:URLRequest = new URLRequest(pathToAAC.text);
+					var loader:URLLoader = new URLLoader();
+					loader.dataFormat = URLLoaderDataFormat.BINARY;
+					loader.addEventListener(Event.COMPLETE, loader_complete);
+					loader.addEventListener(IOErrorEvent.IO_ERROR, loader_ioError);
+					loader.load(request);
+				}
+			}
+			
+			private function pause_click(event:MouseEvent):void
+			{
+				if (stream)
+					stream.pause();
+			}
+			
+		]]>
+	</fx:Script>
+	
+	<s:Label x="28" y="38" text="Path to your FFMPEG executable:"/>
+	<s:TextInput id="pathToFfmpeg" x="28" y="58" width="483" text="/Users/cnunciato/Projects/Misc/ffmpeg/ffmpeg"/>
+	
+	<s:Label x="28" y="105" text="Path to an AAC audio track:"/>
+	<s:TextInput id="pathToAAC" x="28" y="125" width="483" text="assets/2363.m4a"/>
+	
+	<s:Button x="28" y="178" label="Play" click="play_click(event)"/>
+	<s:Button x="106" y="178" label="Pause" click="pause_click(event)"/>
+	
+</s:WindowedApplication>
